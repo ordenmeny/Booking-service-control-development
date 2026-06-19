@@ -18,3 +18,5 @@ class ReadBooking(BaseModel):
     datetime: datetime
     service_type: str
     status: Literal["pending", "confirmed", "failed"]
+
+    model_config = {"from_attributes": True}

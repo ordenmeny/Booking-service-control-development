@@ -17,7 +17,7 @@ class SessionManager:
             echo=echo,
         )
         self.session_factory = async_sessionmaker(
-            authocommit=False,
+            autocommit=False,
             autoflush=False,
             bind=self.engine,
             class_=AsyncSession,

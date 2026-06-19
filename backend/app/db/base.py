@@ -1,11 +1,5 @@
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    mapped_column,
-)
-
-from app.core.custom_types import BookID
+from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    id: Mapped[BookID] = mapped_column(primary_key=True)
+    pass
