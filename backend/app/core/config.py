@@ -14,9 +14,15 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
 
+    REDIS_PASSWORD: str
+
     @property
     def db_url(self) -> str:
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
+    @property
+    def sync_db_url(self) -> str:
+        return f"postgresql://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
