@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from starlette.responses import JSONResponse
 
 from app.api.models import StatusEnum
@@ -31,7 +31,11 @@ def create_booking(
 def get_booking_by_id(session: SyncSessionDep, booking_id: BookID) -> Any:
     booking = BookingService.get_booking_by_id(session, booking_id)
     if booking is None:
-        return {"error": "Бронь не найдена"}
+        raise HTTPException(
+            status_code=404,
+            detail="Бронь не найдена",
+        )
+
     return booking
 
 
@@ -53,7 +57,7 @@ def list_bookings(
     )
 
 
-@router.delete("/bookings/{id}")
+@router.delete("/bookings/{booking_id}")
 def delete_bookings(
     session: SyncSessionDep,
     booking_id: BookID,

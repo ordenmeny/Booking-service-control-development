@@ -14,3 +14,6 @@ uv run --no-sync celery -A app.celery_app.main.celery flower --port=5555 &
 
 # FastAPI-app
 exec uv run --no-sync gunicorn main:app -c gunicorn_conf.py
+
+# Запуск тестов
+uv run --no-sync pytest tests -v

@@ -37,8 +37,10 @@ packages = ["app"]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "mypy>=2.1.0",
     "pytest>=9.1.0",
+    "pytest-anyio>=0.0.0",
     "ruff>=0.15.17",
 ]
 
