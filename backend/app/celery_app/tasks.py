@@ -1,8 +1,13 @@
+import logging
+import time
+
 from app.api.models import StatusEnum
 from app.api.services import BookingService
 from app.celery_app.main import celery
 from app.core.custom_types import BookID
 from app.db.helper import sync_sessionmanager
+
+logger = logging.getLogger(__name__)
 
 
 @celery.task(
@@ -19,9 +24,18 @@ def confirm_booking(self, booking_id: BookID):
         if booking is None:
             return {"error": "Бронь не найдена"}
 
+        # logger.warning("Status before")
+        # logger.info("Status before")
+
+        # Возможна бизнес-логика
+        time.sleep(5)
+
         booking.status = StatusEnum.CONFIRMED
+
         session.commit()
         session.refresh(booking)
+        print(f"Status after: {booking.status}")
+
         return {"status": "confirmed"}
 
     except Exception as exc:

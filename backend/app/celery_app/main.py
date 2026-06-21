@@ -4,9 +4,8 @@ from app.core.config import settings
 
 celery = Celery(
     "app.celery_app.main",
-    broker=f"redis://:{settings.REDIS_PASSWORD}@localhost:6379/0",
-    backend=f"redis://:{settings.REDIS_PASSWORD}@localhost:6379/1",
-    # При использовании Docker: broker = "redis://:password@redis:6379/0"
+    broker=f"redis://:{settings.REDIS_PASSWORD}@redis:6379/0",
+    backend=f"redis://:{settings.REDIS_PASSWORD}@redis:6379/1",
 )
 
 celery.conf.update(

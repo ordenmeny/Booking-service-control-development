@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from sqladmin import Admin, ModelView
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import create_engine
 
 from app.api.models import Booking
 from app.core.config import settings
 
-engine = create_async_engine(
-    settings.db_url,
+engine = create_engine(
+    settings.sync_db_url,
     echo=True,
 )
 

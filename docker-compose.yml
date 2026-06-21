@@ -1,4 +1,21 @@
 services:
+  app:
+    container_name: fastapi_app
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+      - "5555:5555"
+    volumes:
+      - ./backend/alembic:/app/backend/alembic
+    depends_on:
+      - postgres
+      - redis
+
   postgres:
     image: postgres:16
     container_name: postgres16_cd
@@ -29,5 +46,37 @@ services:
     depends_on:
       - postgres
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cd
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    env_file:
+      - .env
+    command:
+      - sh
+      - -c
+      - 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/db
+    depends_on:
+      - redis
+    environment:
+      - REDISINSIGHT_REDIS_URI=redis://redis:6379
+      - RI_BIND_ALL=1
+
+
 volumes:
   pgdata:
+  redis_data:
+  redisinsight-data:

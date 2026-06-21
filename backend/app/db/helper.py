@@ -13,9 +13,8 @@ from app.core.config import settings
 
 class AsyncSessionManager:
     def __init__(self, db_url: str, echo: bool):
-        self.db_url = db_url
         self.engine = create_async_engine(
-            self.db_url,
+            db_url,
             echo=echo,
         )
         self.session_factory = async_sessionmaker(
@@ -35,9 +34,8 @@ class AsyncSessionManager:
 
 class SyncSessionManager:
     def __init__(self, db_url: str, echo: bool):
-        self.db_url = db_url
         self.engine = create_engine(
-            self.db_url,
+            db_url,
             echo=echo,
             pool_size=10,
             max_overflow=20,
@@ -62,6 +60,6 @@ sync_sessionmanager = SyncSessionManager(
 
 
 async_session_manager = AsyncSessionManager(
-    db_url=settings.db_url,
+    db_url=settings.async_db_url,
     echo=settings.ECHO,
 )
