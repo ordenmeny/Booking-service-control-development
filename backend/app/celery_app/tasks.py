@@ -26,21 +26,24 @@ def confirm_booking(self, booking_id: BookID):
         if booking is None:
             return {"error": "Бронь не найдена"}
 
-        # Имитация бизнес-логики (задержка)
-        time.sleep(3)
+        # идемпотентность: если статус уже финальный, сразу возвращаем
+        if booking.status in (StatusEnum.CONFIRMED, StatusEnum.FAILED):
+            logger.info(f"Бронь {booking_id} уже в финальном статусе: {booking.status}")
+            return {"status": booking.status.value}
 
-        # имитация сбоя внешнего сервиса с вероятностью 15%
+        # Имитация бизнес-логики (задержка)
+        time.sleep(5)
+
+        # Сбой с вероятностью 15%
         if random.random() < 0.15:
             raise Exception("Сбой внешнего сервиса (имитация)")
 
+        # Успех
         booking.status = StatusEnum.CONFIRMED
-
         session.commit()
         session.refresh(booking)
 
-        # Логируем mock-отправку уведомления
         logger.info(f"Mock-уведомление: бронь {booking_id} подтверждена")
-
         return {"status": "confirmed"}
 
     except Exception as e:
@@ -48,11 +51,19 @@ def confirm_booking(self, booking_id: BookID):
 
         if booking is not None:
             try:
-                booking.status = StatusEnum.FAILED
-                session.commit()
-                session.refresh(booking)
-                logger.info(f"Статус брони {booking_id} изменён на FAILED")
-                return {"status": "failed"}
+                # Если бронь уже была изменена, но статус ещё не финальный – ставим FAILED
+                if booking.status not in (StatusEnum.CONFIRMED, StatusEnum.FAILED):
+                    booking.status = StatusEnum.FAILED
+                    session.commit()
+                    session.refresh(booking)
+                    logger.info(f"Статус брони {booking_id} изменён на FAILED")
+                else:
+                    logger.info("Бронь уже в финальном статусе, ничего не меняем")
+                return {
+                    "status": "failed"
+                    if booking.status == StatusEnum.FAILED
+                    else booking.status.value
+                }
             except Exception as commit_error:
                 logger.error(f"Не удалось обновить статус FAILED: {commit_error}")
                 session.rollback()
