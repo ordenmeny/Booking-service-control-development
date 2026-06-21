@@ -1,0 +1,27 @@
+# VCS / IDE
+.git
+.idea
+
+# Локальные виртуальные окружения — внутри образа создаётся своё
+.venv
+**/.venv
+
+# Кэши инструментов и Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.mypy_cache/
+**/.mypy_cache/
+.ruff_cache/
+**/.ruff_cache/
+.pytest_cache/
+**/.pytest_cache/
+
+# Секреты — не должны попадать в образ
+.env
+.env.*
+!.env.example
+
+# Прочее
+*.log
+.DS_Store

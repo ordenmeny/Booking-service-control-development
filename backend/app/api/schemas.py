@@ -6,6 +6,10 @@ from pydantic import BaseModel
 from app.core.custom_types import BookID
 
 
+class BookingStatus(BaseModel):
+    status: Literal["pending", "confirmed", "failed"]
+
+
 class CreateBooking(BaseModel):
     name: str
     datetime: datetime
