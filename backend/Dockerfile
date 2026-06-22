@@ -19,10 +19,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --package backend --locked --no-dev --no-install-project
 
 COPY backend/run.sh /run.sh
-RUN chmod +x /run.sh
-
-COPY backend/test.sh /test.sh
-RUN chmod +x /test.sh
+COPY backend/scripts /app/backend/scripts
+RUN chmod +x /run.sh /app/backend/scripts/*.sh
 
 COPY backend/alembic.ini backend/main.py backend/gunicorn_conf.py /app/backend/
 COPY backend/alembic /app/backend/alembic

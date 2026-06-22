@@ -11,3 +11,8 @@ wheels/
 
 .idea
 .env
+.env.*
+
+# Исключения
+!.env.example
+!.env.dev.example
