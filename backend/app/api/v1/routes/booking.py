@@ -1,17 +1,18 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Request
 from starlette.responses import JSONResponse
 
 from app.api.models import StatusEnum
+from app.api.rate_limit import check_booking_rate_limit
 from app.api.schemas import CreateBooking, ReadBooking, ReadBookingPaginate
 from app.api.services import BookingService
 from app.celery_app.tasks import confirm_booking
 from app.core.custom_types import BookID, StatusType
 from app.db.deps import SyncSessionDep
 
-router = APIRouter(prefix="/api/v1/booking", tags=["booking"])
+router = APIRouter(tags=["bookings"])
 
 
 logger = logging.getLogger(__name__)
@@ -19,9 +20,11 @@ logger = logging.getLogger(__name__)
 
 @router.post("/bookings", response_model=ReadBooking)
 def create_booking(
+    request: Request,
     session: SyncSessionDep,
     schema: CreateBooking,
 ) -> Any:
+    check_booking_rate_limit(request)
     booking = BookingService.create_booking(schema, session)
     confirm_booking.delay(booking.id)
     return booking
@@ -64,7 +67,13 @@ def delete_bookings(
 ) -> Any:
     booking_to_delete = BookingService.get_booking_by_id(session, booking_id)
 
-    if booking_to_delete is not None and booking_to_delete.status == StatusEnum.PENDING:
+    if booking_to_delete is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Бронь не найдена",
+        )
+
+    if booking_to_delete.status == StatusEnum.PENDING:
         BookingService.delete_booking_by_id(session, booking_to_delete)
         return JSONResponse(content="deleted", status_code=200)
 

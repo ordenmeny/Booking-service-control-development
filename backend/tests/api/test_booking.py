@@ -20,7 +20,7 @@ def booking_payload(**overrides):
 async def test_create_booking_returns_pending_and_queues_worker(client, db_session):
     with patch("app.api.v1.routes.booking.confirm_booking.delay") as delay_mock:
         response = await client.post(
-            "/api/v1/booking/bookings",
+            "/bookings",
             json=booking_payload(),
         )
 
@@ -40,9 +40,21 @@ async def test_create_booking_requires_service_type(client, db_session):
     payload = booking_payload()
     payload.pop("service_type")
 
-    response = await client.post("/api/v1/booking/bookings", json=payload)
+    response = await client.post("/bookings", json=payload)
 
     assert response.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_create_booking_rate_limit(client, db_session):
+    with patch("app.api.v1.routes.booking.confirm_booking.delay"):
+        for _ in range(5):
+            response = await client.post("/bookings", json=booking_payload())
+            assert response.status_code == 200
+
+        response = await client.post("/bookings", json=booking_payload())
+
+    assert response.status_code == 429
 
 
 @pytest.mark.anyio
@@ -56,7 +68,7 @@ async def test_get_booking(client, db_session):
     db_session.commit()
     db_session.refresh(booking)
 
-    response = await client.get(f"/api/v1/booking/bookings/{booking.id}")
+    response = await client.get(f"/bookings/{booking.id}")
 
     assert response.status_code == 200
     assert response.json()["id"] == booking.id
@@ -64,7 +76,7 @@ async def test_get_booking(client, db_session):
 
 @pytest.mark.anyio
 async def test_get_booking_not_found(client, db_session):
-    response = await client.get("/api/v1/booking/bookings/999999")
+    response = await client.get("/bookings/999999")
 
     assert response.status_code == 404
 
@@ -86,7 +98,7 @@ async def test_list_bookings_filters_by_status_and_paginates(client, db_session)
     db_session.commit()
 
     response = await client.get(
-        "/api/v1/booking/bookings",
+        "/bookings",
         params={"status": "pending", "skip": 1, "limit": 2},
     )
 
@@ -102,7 +114,7 @@ async def test_list_bookings_filters_by_status_and_paginates(client, db_session)
 @pytest.mark.anyio
 async def test_list_bookings_rejects_invalid_limit(client, db_session):
     response = await client.get(
-        "/api/v1/booking/bookings",
+        "/bookings",
         params={"status": "pending", "limit": 101},
     )
 
@@ -112,7 +124,7 @@ async def test_list_bookings_rejects_invalid_limit(client, db_session):
 @pytest.mark.anyio
 async def test_list_bookings_rejects_invalid_status(client, db_session):
     response = await client.get(
-        "/api/v1/booking/bookings",
+        "/bookings",
         params={"status": "unknown"},
     )
 
@@ -131,7 +143,7 @@ async def test_delete_pending_booking(client, db_session):
     db_session.refresh(booking)
     booking_id = booking.id
 
-    response = await client.delete(f"/api/v1/booking/bookings/{booking_id}")
+    response = await client.delete(f"/bookings/{booking_id}")
 
     assert response.status_code == 200
     assert response.json() == "deleted"
@@ -152,7 +164,14 @@ async def test_delete_confirmed_booking_is_forbidden(client, db_session):
     db_session.commit()
     db_session.refresh(booking)
 
-    response = await client.delete(f"/api/v1/booking/bookings/{booking.id}")
+    response = await client.delete(f"/bookings/{booking.id}")
 
     assert response.status_code == 403
     assert db_session.get(Booking, booking.id) is not None
+
+
+@pytest.mark.anyio
+async def test_delete_missing_booking_returns_not_found(client, db_session):
+    response = await client.delete("/bookings/999999")
+
+    assert response.status_code == 404

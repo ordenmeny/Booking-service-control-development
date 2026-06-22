@@ -1,7 +1,8 @@
+name: control_development_dev
+
 services:
   postgres:
     image: postgres:16
-    container_name: postgres16_cd_dev
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -19,7 +20,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis_cd_dev
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -39,7 +39,6 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: pgadmin4_cd_dev
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
@@ -52,7 +51,6 @@ services:
 
   redisinsight:
     image: redis/redisinsight:latest
-    container_name: redisinsight_cd_dev
     restart: unless-stopped
     ports:
       - "${REDISINSIGHT_PORT}:5540"

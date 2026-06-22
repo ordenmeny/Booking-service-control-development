@@ -3,6 +3,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 
 from app.api.models import Booking
+from app.api.rate_limit import reset_rate_limit
 from app.db.helper import sync_sessionmanager
 from main import app
 
@@ -10,6 +11,13 @@ from main import app
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.fixture(autouse=True)
+def reset_limiter():
+    reset_rate_limit()
+    yield
+    reset_rate_limit()
 
 
 @pytest.fixture

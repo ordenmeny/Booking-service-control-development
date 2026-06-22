@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 class Settings(BaseSettings):
     APP_ENV: str = "prod"
     ECHO: bool = False
+    LOG_LEVEL: str = "INFO"
 
     DB_HOST: str
     DB_PORT: int
