@@ -1,5 +1,6 @@
 ENV_FILE ?= .env.dev
-COMPOSE_DEV = docker compose --env-file $(ENV_FILE) -f docker-compose.dev.yml
+COMPOSE_ENV_CLEAN = env -u APP_ENV -u ECHO -u DB_HOST -u DB_PORT -u DB_USER -u DB_PASS -u DB_NAME -u PGADMIN_DEFAULT_EMAIL -u PGADMIN_DEFAULT_PASSWORD -u PGADMIN_PORT -u REDIS_HOST -u REDIS_PORT -u REDIS_PASSWORD -u REDIS_BROKER_DB -u REDIS_RESULT_DB -u REDISINSIGHT_PORT
+COMPOSE_DEV = $(COMPOSE_ENV_CLEAN) docker compose --env-file $(ENV_FILE) -f docker-compose.dev.yml
 COMPOSE_PROD = docker compose --env-file .env -f docker-compose.yml
 BACKEND_DIR = backend
 

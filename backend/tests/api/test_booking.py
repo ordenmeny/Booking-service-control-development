@@ -1,136 +1,158 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 
 from app.api.models import Booking, StatusEnum
-from app.db.helper import sync_sessionmanager
+
+
+def booking_payload(**overrides):
+    payload = {
+        "name": "Ivan",
+        "datetime": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+        "service_type": "massage",
+    }
+    payload.update(overrides)
+    return payload
 
 
 @pytest.mark.anyio
-async def test_create_booking(client):
-    response = await client.post(
-        "/api/v1/booking/bookings",
-        json={
-            "name": "Ivan",
-            "datetime": (datetime.utcnow() + timedelta(days=1)).isoformat(),
-            "service_type": "massage",
-        },
-    )
+async def test_create_booking_returns_pending_and_queues_worker(client, db_session):
+    with patch("app.api.v1.routes.booking.confirm_booking.delay") as delay_mock:
+        response = await client.post(
+            "/api/v1/booking/bookings",
+            json=booking_payload(),
+        )
 
     assert response.status_code == 200
 
     data = response.json()
-
     assert data["name"] == "Ivan"
     assert data["service_type"] == "massage"
     assert data["status"] == "pending"
-    assert "id" in data
+    assert isinstance(data["id"], int)
+
+    delay_mock.assert_called_once_with(data["id"])
 
 
 @pytest.mark.anyio
-async def test_get_booking(client):
-    session = sync_sessionmanager.get_session()
+async def test_create_booking_requires_service_type(client, db_session):
+    payload = booking_payload()
+    payload.pop("service_type")
 
+    response = await client.post("/api/v1/booking/bookings", json=payload)
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_get_booking(client, db_session):
     booking = Booking(
         name="Test",
-        datetime=datetime.utcnow(),
+        datetime=datetime.now(UTC),
         service_type="doctor",
     )
-
-    session.add(booking)
-    session.commit()
-    session.refresh(booking)
+    db_session.add(booking)
+    db_session.commit()
+    db_session.refresh(booking)
 
     response = await client.get(f"/api/v1/booking/bookings/{booking.id}")
 
     assert response.status_code == 200
     assert response.json()["id"] == booking.id
 
-    session.delete(booking)
-    session.commit()
-    session.close()
-
 
 @pytest.mark.anyio
-async def test_get_booking_not_found(client):
+async def test_get_booking_not_found(client, db_session):
     response = await client.get("/api/v1/booking/bookings/999999")
 
     assert response.status_code == 404
 
 
 @pytest.mark.anyio
-async def test_list_booking(client):
+async def test_list_bookings_filters_by_status_and_paginates(client, db_session):
+    bookings = [
+        Booking(name="Pending 1", datetime=datetime.now(UTC), service_type="test"),
+        Booking(name="Pending 2", datetime=datetime.now(UTC), service_type="test"),
+        Booking(name="Pending 3", datetime=datetime.now(UTC), service_type="test"),
+        Booking(
+            name="Confirmed",
+            datetime=datetime.now(UTC),
+            service_type="test",
+            status=StatusEnum.CONFIRMED,
+        ),
+    ]
+    db_session.add_all(bookings)
+    db_session.commit()
+
     response = await client.get(
         "/api/v1/booking/bookings",
-        params={
-            "status": "pending",
-        },
+        params={"status": "pending", "skip": 1, "limit": 2},
     )
 
     assert response.status_code == 200
-
     body = response.json()
-
-    assert "items" in body
-    assert "total" in body
-    assert body["skip"] == 0
-    assert body["limit"] == 10
+    assert body["total"] == 3
+    assert body["skip"] == 1
+    assert body["limit"] == 2
+    assert len(body["items"]) == 2
+    assert all(item["status"] == "pending" for item in body["items"])
 
 
 @pytest.mark.anyio
-async def test_list_booking_invalid_limit(client):
+async def test_list_bookings_rejects_invalid_limit(client, db_session):
     response = await client.get(
         "/api/v1/booking/bookings",
-        params={
-            "status": "pending",
-            "limit": 101,
-        },
+        params={"status": "pending", "limit": 101},
     )
 
     assert response.status_code == 422
 
 
 @pytest.mark.anyio
-async def test_delete_pending_booking(client):
-    session = sync_sessionmanager.get_session()
-
-    booking = Booking(
-        name="Delete",
-        datetime=datetime.utcnow(),
-        service_type="test",
+async def test_list_bookings_rejects_invalid_status(client, db_session):
+    response = await client.get(
+        "/api/v1/booking/bookings",
+        params={"status": "unknown"},
     )
 
-    session.add(booking)
-    session.commit()
-    session.refresh(booking)
+    assert response.status_code == 422
 
-    response = await client.delete(f"/api/v1/booking/bookings/{booking.id}")
+
+@pytest.mark.anyio
+async def test_delete_pending_booking(client, db_session):
+    booking = Booking(
+        name="Delete",
+        datetime=datetime.now(UTC),
+        service_type="test",
+    )
+    db_session.add(booking)
+    db_session.commit()
+    db_session.refresh(booking)
+    booking_id = booking.id
+
+    response = await client.delete(f"/api/v1/booking/bookings/{booking_id}")
 
     assert response.status_code == 200
     assert response.json() == "deleted"
 
-    session.close()
+    db_session.expire_all()
+    assert db_session.get(Booking, booking_id) is None
 
 
 @pytest.mark.anyio
-async def test_delete_confirmed_booking(client):
-    session = sync_sessionmanager.get_session()
-
+async def test_delete_confirmed_booking_is_forbidden(client, db_session):
     booking = Booking(
         name="Delete",
-        datetime=datetime.utcnow(),
+        datetime=datetime.now(UTC),
         service_type="test",
         status=StatusEnum.CONFIRMED,
     )
-
-    session.add(booking)
-    session.commit()
-    session.refresh(booking)
+    db_session.add(booking)
+    db_session.commit()
+    db_session.refresh(booking)
 
     response = await client.delete(f"/api/v1/booking/bookings/{booking.id}")
 
     assert response.status_code == 403
-
-    session.delete(booking)
-    session.commit()
-    session.close()
+    assert db_session.get(Booking, booking.id) is not None

@@ -1,40 +1,66 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 from app.api.models import Booking, StatusEnum
 from app.celery_app.tasks import confirm_booking
-from app.db.helper import sync_sessionmanager
 
 
-def test_confirm_booking_success():
-    session = sync_sessionmanager.get_session()
-
+def create_booking(db_session, **overrides):
     booking = Booking(
-        name="Worker",
-        datetime=datetime.utcnow(),
-        service_type="test",
+        name=overrides.pop("name", "Worker"),
+        datetime=overrides.pop("datetime", datetime.now(UTC)),
+        service_type=overrides.pop("service_type", "test"),
+        **overrides,
     )
+    db_session.add(booking)
+    db_session.commit()
+    db_session.refresh(booking)
+    return booking
 
-    session.add(booking)
-    session.commit()
-    session.refresh(booking)
-    booking_id = booking.id
 
-    session.close()
+def test_confirm_booking_success(db_session):
+    booking = create_booking(db_session)
 
     with (
         patch("app.celery_app.tasks.time.sleep"),
         patch("app.celery_app.tasks.random.random", return_value=0.5),
     ):
-        result = confirm_booking.run(booking_id)
+        result = confirm_booking.run(booking.id)
 
-    session = sync_sessionmanager.get_session()
-
-    booking = session.get(Booking, booking_id)
-
+    db_session.refresh(booking)
     assert result == {"status": "confirmed"}
     assert booking.status == StatusEnum.CONFIRMED
 
-    session.delete(booking)
-    session.commit()
-    session.close()
+
+def test_confirm_booking_failure_sets_failed_status(db_session):
+    booking = create_booking(db_session)
+
+    with (
+        patch("app.celery_app.tasks.time.sleep"),
+        patch("app.celery_app.tasks.random.random", return_value=0.1),
+    ):
+        result = confirm_booking.run(booking.id)
+
+    db_session.refresh(booking)
+    assert result == {"status": "failed"}
+    assert booking.status == StatusEnum.FAILED
+
+
+def test_confirm_booking_is_idempotent_for_final_status(db_session):
+    booking = create_booking(db_session, status=StatusEnum.CONFIRMED)
+
+    with (
+        patch("app.celery_app.tasks.time.sleep") as sleep_mock,
+        patch("app.celery_app.tasks.random.random") as random_mock,
+    ):
+        result = confirm_booking.run(booking.id)
+
+    assert result == {"status": "confirmed"}
+    sleep_mock.assert_not_called()
+    random_mock.assert_not_called()
+
+
+def test_confirm_booking_returns_error_for_missing_booking(db_session):
+    result = confirm_booking.run(999999)
+
+    assert result == {"error": "Бронь не найдена"}
